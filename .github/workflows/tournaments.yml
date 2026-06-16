@@ -1,0 +1,29 @@
+# Log Pose - daily tournament data refresh (Limitless API)
+name: Refresh tournament data
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Generate tournaments.json
+        env:
+          LIMITLESS_KEY: ${{ secrets.LIMITLESS_KEY }}
+        run: node fetch-tournaments.mjs
+      - name: Commit if changed
+        run: |
+          git config user.name "tournament-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add tournaments.json
+          git diff --staged --quiet || git commit -m "chore: refresh tournament data"
+          git push
