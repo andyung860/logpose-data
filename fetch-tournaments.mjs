@@ -25,7 +25,7 @@
 
 const API = "https://play.limitlesstcg.com/api";
 const GAME = "OP";                 // One Piece
-const MAX_TOURNAMENTS = 120;       // how many recent events to scan
+const MAX_TOURNAMENTS = 300;       // how many recent events to scan
 const TOP_CUT = 8;                 // keep decklists placing 1..TOP_CUT
 const MIN_DATE = "2026-01-01";     // only keep events on/after this date (current meta)
 // NOTE: Egman Events runs its tournaments ON Limitless (listed as organizer
@@ -62,23 +62,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Limitless has no "Regional/National" field, so we derive it. Most reliable
 // signal is the organizer; maintain this small allow-list as you learn the
 // official organizer IDs/names. Player count + name keywords are fallbacks.
+// Allow-list: organizerId -> Tier. Overrides name/heuristics for known TOs.
+// Grounded from Limitless data (e.g. TCG Park runs store championships). Add
+// official Regional/National TO ids here as you identify them.
 const OFFICIAL_ORGANIZERS = {
-  // organizerId: "Tier"   <-- fill in as you identify sanctioned organizers
-  // 123: "Regionals",
-  // 456: "Nationals",
+  1710: "Store Championship",   // TCG Park
+  // 0000: "Regionals",
+  // 0000: "Nationals",
 };
 function classifyTier(details) {
-  if (OFFICIAL_ORGANIZERS[details?.organizer?.id])
-    return OFFICIAL_ORGANIZERS[details.organizer.id];
-  const name = `${details?.name || ""}`.toLowerCase();
-  if (/world|worlds/.test(name)) return "Worlds";
-  if (/national|nationals/.test(name)) return "Nationals";
-  if (/region|regional/.test(name)) return "Regionals";
-  if (/champ|championship/.test(name)) return "Championships";
-  if (details?.isOnline) return "Online";
-  const p = details?.players || 0;
-  if (p >= 256) return "Regionals";      // heuristic — tune to your scene
-  if (p >= 64) return "Locals / Store";
+  const oid = details && details.organizer && details.organizer.id;
+  if (oid != null && OFFICIAL_ORGANIZERS[oid]) return OFFICIAL_ORGANIZERS[oid];
+  const name = `${details && details.name || ""}`.toLowerCase();
+  if (/world/.test(name)) return "Worlds";
+  if (/national/.test(name)) return "Nationals";
+  if (/regional/.test(name)) return "Regionals";
+  if (/store championship|shop championship/.test(name)) return "Store Championship";
+  if (/championship|champ/.test(name)) return "Championships";
+  if (details && details.isOnline) return "Online";
+  const p = (details && details.players) || 0;
+  if (p >= 256) return "Regionals";          // large in-person ~ regional scale
+  if (p >= 64) return "Locals / Large";
   return "Locals / Store";
 }
 
@@ -149,6 +153,8 @@ async function build() {
         if (!cards.length) continue;
         decks.push({
           DeckName: `${(s.deck && s.deck.name) || "Deck"} — ${ordinal(s.placing)}`,
+          Archetype: (s.deck && s.deck.name) || "",   // leader archetype name
+          LeaderCard: (s.deck && s.deck.id) || "",     // leader card id
           Author: s.name || "",             // display name only
           Country: s.country || "",         // ISO-2 only — no other PII
           Tournament: details.name || "",
@@ -160,7 +166,7 @@ async function build() {
           Cards: cards,
         });
       }
-      await sleep(400); // be polite to the API
+      await sleep(250); // be polite to the API
       console.log(`  ${details.name} [${tier}] — kept ${top.length} lists`);
     } catch (e) {
       console.warn(`  skipped ${t.id}: ${e.message}`);
