@@ -25,7 +25,7 @@
 
 const API = "https://play.limitlesstcg.com/api";
 const GAME = "OP";                 // One Piece
-const MAX_TOURNAMENTS = 300;       // how many recent events to scan
+const MAX_TOURNAMENTS = 200;       // how many recent events to scan
 const TOP_CUT = 8;                 // keep decklists placing 1..TOP_CUT
 const MIN_DATE = "2026-01-01";     // only keep events on/after this date (current meta)
 // NOTE: Egman Events runs its tournaments ON Limitless (listed as organizer
